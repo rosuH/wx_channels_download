@@ -65,7 +65,7 @@ func installCertificate(cert_data []byte) error {
 	if err := cert_file.Close(); err != nil {
 		return errors.New(fmt.Sprintf("生成证书失败，%v\n", err.Error()))
 	}
-	cmd := fmt.Sprintf("security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain '%s'", cert_file.Name())
+	cmd := fmt.Sprintf("security add-trusted-cert -d -r trustRoot -k ~/Library/Keychains/login.keychain-db '%s'", cert_file.Name())
 	ps := exec.Command("bash", "-c", cmd)
 	output, err2 := ps.CombinedOutput()
 	if err2 != nil {
