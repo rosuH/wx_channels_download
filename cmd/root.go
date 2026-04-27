@@ -80,7 +80,7 @@ var root_cmd = &cobra.Command{
 			}
 			os.Exit(0)
 		}
-		CertFiles = config.LoadCertFiles()
+		CertFiles = config.LoadCertFiles(Cfg.RootDir)
 		return nil
 	},
 	PreRun: func(cmd *cobra.Command, args []string) {

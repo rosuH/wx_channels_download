@@ -112,7 +112,7 @@ func (c *Config) LoadConfig() error {
 	Register(ConfigItem{
 		Key:         "cert.name",
 		Type:        ConfigTypeString,
-		Default:     "Echo",
+		Default:     "WxChannelsProxyCA",
 		Description: "自定义证书名称",
 		Title:       "证书名称",
 		Group:       "Proxy",
@@ -493,8 +493,7 @@ func EnsureDirIfMissing(path string) error {
 	return err
 }
 
-func LoadCertFiles() *certificate.CertFileAndKeyFile {
-	cert := certificate.DefaultCertFiles
+func LoadCertFiles(rootDir string) *certificate.CertFileAndKeyFile {
 	var dirs []string
 	if home, err := os.UserHomeDir(); err == nil {
 		dirs = append(dirs, filepath.Join(home, ".mitmproxy"))
@@ -553,13 +552,24 @@ func LoadCertFiles() *certificate.CertFileAndKeyFile {
 		if cert_bytes, err := os.ReadFile(cert_filepath); err == nil {
 			if certkey_bytes, err2 := os.ReadFile(certkey_filepath); err2 == nil {
 				certname := viper.GetString("cert.name")
-				cert = &certificate.CertFileAndKeyFile{
+				return &certificate.CertFileAndKeyFile{
 					Name:       certname,
 					Cert:       cert_bytes,
 					PrivateKey: certkey_bytes,
 				}
 			}
 		}
+	}
+	certname := viper.GetString("cert.name")
+	if certname == "" {
+		certname = "WxChannelsProxyCA"
+	}
+	certDir := filepath.Join(rootDir, "certs")
+	cert, err := certificate.GetOrGenerateCert(certDir, certname)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "生成证书失败: %v, 将使用内存临时证书\n", err)
+		// 回退：在内存中生成一个临时证书，至少让程序能启动
+		cert, _ = certificate.GenerateCA(certname)
 	}
 	return cert
 }
