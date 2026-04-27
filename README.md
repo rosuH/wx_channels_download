@@ -4,7 +4,7 @@
 
 ## 使用说明
 
-下载[构建包](https://github.com/ltaoo/wx_channels_download/releases)，**以管理员身份运行**，首次打开会自动安装证书，然后启动服务。
+下载[构建包](https://github.com/rosuH/wx_channels_download/releases)，**以管理员身份运行**，首次打开会自动安装证书，然后启动服务。
 
 当终端提示「代理服务启动成功」就说明可以使用了。
 
