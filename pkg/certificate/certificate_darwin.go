@@ -3,50 +3,43 @@
 package certificate
 
 import (
-	"errors"
+	"crypto/sha1"
+	"crypto/x509"
+	"encoding/pem"
 	"fmt"
 	"os"
 	"os/exec"
-	"regexp"
-	"strings"
 )
 
 func fetchCertificates() ([]Certificate, error) {
-	cmd := exec.Command("security", "find-certificate", "-a")
-	output, err2 := cmd.Output()
-	if err2 != nil {
-		return nil, errors.New(fmt.Sprintf("获取证书时发生错误，%v\n", err2.Error()))
+	// 使用 -p 输出 PEM 格式，自行解析以获取准确的 thumbprint 和 CN
+	cmd := exec.Command("security", "find-certificate", "-a", "-p")
+	output, err := cmd.Output()
+	if err != nil {
+		return nil, fmt.Errorf("获取证书时发生错误: %w", err)
 	}
 	var certificates []Certificate
-	lines := strings.Split(string(output), "\n")
-	for i := 0; i < len(lines)-1; i += 13 {
-		if lines[i] == "" {
+	data := output
+	for {
+		block, rest := pem.Decode(data)
+		if block == nil {
+			break
+		}
+		data = rest
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
 			continue
 		}
-		// if i > len(lines)-1 {
-		// 	continue
-		// }
-		cenc := lines[i+5]
-		ctyp := lines[i+6]
-		hpky := lines[i+7]
-		labl := lines[i+9]
-		subj := lines[i+12]
-		re := regexp.MustCompile(`="([^"]{1,})"`)
-		// 找到匹配的字符串
-		matches := re.FindStringSubmatch(labl)
-		if len(matches) < 1 {
-			continue
-		}
-		label := matches[1]
+		thumbprint := fmt.Sprintf("%X", sha1.Sum(cert.Raw))
 		certificates = append(certificates, Certificate{
-			Thumbprint: "",
+			Thumbprint: thumbprint,
 			Subject: CertificateSubject{
-				CN: label,
-				OU: cenc,
-				O:  ctyp,
-				L:  hpky,
-				S:  subj,
-				C:  cenc,
+				CN: cert.Subject.CommonName,
+				OU: cert.Subject.OrganizationalUnit[0],
+				O:  cert.Subject.Organization[0],
+				L:  cert.Subject.Locality[0],
+				S:  cert.Subject.Province[0],
+				C:  cert.Subject.Country[0],
 			},
 		})
 	}
@@ -54,22 +47,22 @@ func fetchCertificates() ([]Certificate, error) {
 }
 
 func installCertificate(cert_data []byte) error {
-	cert_file, err := os.CreateTemp("", "SunnyRoot.cer")
+	cert_file, err := os.CreateTemp("", "*.cer")
 	if err != nil {
-		return errors.New(fmt.Sprintf("没有创建证书的权限，%v\n", err.Error()))
+		return fmt.Errorf("没有创建证书的权限: %w", err)
 	}
 	defer os.Remove(cert_file.Name())
 	if _, err := cert_file.Write(cert_data); err != nil {
-		return errors.New(fmt.Sprintf("获取证书失败，%v\n", err.Error()))
+		return fmt.Errorf("写入证书失败: %w", err)
 	}
 	if err := cert_file.Close(); err != nil {
-		return errors.New(fmt.Sprintf("生成证书失败，%v\n", err.Error()))
+		return fmt.Errorf("关闭证书文件失败: %w", err)
 	}
 	cmd := fmt.Sprintf("security add-trusted-cert -d -r trustRoot -k ~/Library/Keychains/login.keychain-db '%s'", cert_file.Name())
 	ps := exec.Command("bash", "-c", cmd)
 	output, err2 := ps.CombinedOutput()
 	if err2 != nil {
-		return errors.New(fmt.Sprintf("安装证书时发生错误，%v\n", string(output)))
+		return fmt.Errorf("安装证书时发生错误: %w, 输出: %s", err2, string(output))
 	}
 	return nil
 }
@@ -81,7 +74,7 @@ func uninstallCertificate(certificate_name string) error {
 	// 再尝试从 System keychain 删除（旧版 SunnyNet 可能安装在此处）
 	_ = exec.Command("bash", "-c", fmt.Sprintf("security delete-certificate -c '%s' -k /Library/Keychains/System.keychain", certificate_name)).Run()
 	if err != nil {
-		return errors.New(fmt.Sprintf("删除证书时发生错误，%v\n", string(output)))
+		return fmt.Errorf("删除证书时发生错误: %w, 输出: %s", err, string(output))
 	}
 	return nil
 }

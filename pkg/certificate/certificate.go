@@ -3,6 +3,7 @@ package certificate
 import (
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/sha1"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
@@ -10,8 +11,13 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
+
+// LegacySunnyNetThumbprint 是原仓库内嵌 SunnyNet 证书（公开私钥）的 SHA1 指纹
+// 用于精确识别并清理旧版危险证书
+const LegacySunnyNetThumbprint = "D70CD039051F77C30673B8209FC15EFA650ED52C"
 
 type CertFileAndKeyFile struct {
 	Name       string
@@ -46,8 +52,14 @@ func GenerateCA(name string) (*CertFileAndKeyFile, error) {
 		return nil, fmt.Errorf("generate rsa key: %w", err)
 	}
 
+	// 使用随机序列号，确保每次生成的证书唯一可区分
+	serialNumber, err := rand.Int(rand.Reader, new(big.Int).Lsh(big.NewInt(1), 128))
+	if err != nil {
+		return nil, fmt.Errorf("generate serial: %w", err)
+	}
+
 	template := x509.Certificate{
-		SerialNumber: big.NewInt(1),
+		SerialNumber: serialNumber,
 		Subject: pkix.Name{
 			CommonName:         name,
 			Organization:       []string{name},
@@ -75,6 +87,20 @@ func GenerateCA(name string) (*CertFileAndKeyFile, error) {
 		Cert:       certPEM,
 		PrivateKey: keyPEM,
 	}, nil
+}
+
+// GetCertThumbprint 计算证书 PEM 的 SHA1 指纹（大写无冒号）
+func GetCertThumbprint(certPEM []byte) string {
+	block, _ := pem.Decode(certPEM)
+	if block == nil {
+		return ""
+	}
+	cert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return ""
+	}
+	sum := sha1.Sum(cert.Raw)
+	return fmt.Sprintf("%X", sum)
 }
 
 // GetOrGenerateCert 获取或生成证书
@@ -129,6 +155,21 @@ func CheckHasCertificate(cert_name string) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+// FindCertificatesByName 根据名称查找系统中的所有证书，包含指纹信息
+func FindCertificatesByName(certName string) ([]Certificate, error) {
+	all, err := fetchCertificates()
+	if err != nil {
+		return nil, err
+	}
+	var matched []Certificate
+	for _, cert := range all {
+		if strings.EqualFold(cert.Subject.CN, certName) {
+			matched = append(matched, cert)
+		}
+	}
+	return matched, nil
 }
 
 // 安装指定证书

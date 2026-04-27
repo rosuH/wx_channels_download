@@ -87,23 +87,37 @@ func (c *Interceptor) Start() error {
 	}
 	c.proxy = client
 	if !c.Settings.ProxySkipInstallRootCert {
-		// 清理旧版公开私钥的危险证书（SunnyNet 是原仓库默认证书名）
-		_ = certificate.UninstallCertificate("SunnyNet")
+		// 1. 安全清理旧版 SunnyNet 证书（原仓库内嵌的公开私钥证书）
+		if hasSunnyNet, _ := certificate.CheckHasCertificate("SunnyNet"); hasSunnyNet {
+			fmt.Println("发现旧版 SunnyNet 证书（公开私钥），正在安全移除...")
+			if err := certificate.UninstallCertificate("SunnyNet"); err != nil {
+				fmt.Printf("移除 SunnyNet 证书失败（可忽略）: %v\n", err)
+			} else {
+				fmt.Println("✓ 已移除 SunnyNet 证书")
+			}
+		}
 
+		// 2. 检查并更新当前名称的旧证书
 		existing, err := certificate.CheckHasCertificate(c.Cert.Name)
 		if err != nil {
 			return fmt.Errorf("检查证书失败: %v", err)
 		}
 		if existing {
-			// 已存在同名证书，先卸载确保替换为当前动态生成的版本
+			fmt.Printf("发现已安装的 %s 证书，正在更新为当前版本...\n", c.Cert.Name)
 			if err := certificate.UninstallCertificate(c.Cert.Name); err != nil {
 				fmt.Printf("卸载旧证书失败（可忽略）: %v\n", err)
+			} else {
+				fmt.Printf("✓ 已卸载旧版 %s 证书\n", c.Cert.Name)
 			}
 		}
-		fmt.Printf("正在安装证书...\n")
+
+		// 3. 安装当前动态生成的证书
+		thumbprint := certificate.GetCertThumbprint(c.Cert.Cert)
+		fmt.Printf("正在安装 %s 证书 (thumbprint: %s)...\n", c.Cert.Name, thumbprint)
 		if err := certificate.InstallCertificate(c.Cert.Cert); err != nil {
 			return fmt.Errorf("安装证书失败: %v", err)
 		}
+		fmt.Println("✓ 证书安装完成")
 	}
 	if !buildtags.UsingSunnyNet && c.Settings.ProxySetSystem {
 		if err := system.EnableProxy(system.ProxySettings{
