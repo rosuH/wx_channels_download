@@ -48,3 +48,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag ${{ steps.calc.outputs.next }}
           git push origin ${{ steps.calc.outputs.next }}
+
+  release:
+    needs: bump
+    uses: ./.github/workflows/release.yml
