@@ -75,24 +75,12 @@ func installCertificate(cert_data []byte) error {
 }
 
 func uninstallCertificate(certificate_name string) error {
-	certificates, err := fetchCertificates()
+	// 先从用户 login keychain 删除
+	cmd := exec.Command("bash", "-c", fmt.Sprintf("security delete-certificate -c '%s'", certificate_name))
+	output, err := cmd.CombinedOutput()
+	// 再尝试从 System keychain 删除（旧版 SunnyNet 可能安装在此处）
+	_ = exec.Command("bash", "-c", fmt.Sprintf("security delete-certificate -c '%s' -k /Library/Keychains/System.keychain", certificate_name)).Run()
 	if err != nil {
-		return err
-	}
-	var matched *Certificate
-	for _, cert := range certificates {
-		if cert.Subject.CN == certificate_name {
-			matched = &cert
-			break
-		}
-	}
-	if matched == nil {
-		return errors.New("没有找到匹配的根证书")
-	}
-	cmd := fmt.Sprintf("security delete-certificate -c '%s'", certificate_name)
-	ps := exec.Command("bash", "-c", cmd)
-	output, err2 := ps.CombinedOutput()
-	if err2 != nil {
 		return errors.New(fmt.Sprintf("删除证书时发生错误，%v\n", string(output)))
 	}
 	return nil

@@ -87,15 +87,22 @@ func (c *Interceptor) Start() error {
 	}
 	c.proxy = client
 	if !c.Settings.ProxySkipInstallRootCert {
+		// 清理旧版公开私钥的危险证书（SunnyNet 是原仓库默认证书名）
+		_ = certificate.UninstallCertificate("SunnyNet")
+
 		existing, err := certificate.CheckHasCertificate(c.Cert.Name)
 		if err != nil {
 			return fmt.Errorf("检查证书失败: %v", err)
 		}
-		if !existing {
-			fmt.Printf("正在安装证书...\n")
-			if err := certificate.InstallCertificate(c.Cert.Cert); err != nil {
-				return fmt.Errorf("安装证书失败: %v", err)
+		if existing {
+			// 已存在同名证书，先卸载确保替换为当前动态生成的版本
+			if err := certificate.UninstallCertificate(c.Cert.Name); err != nil {
+				fmt.Printf("卸载旧证书失败（可忽略）: %v\n", err)
 			}
+		}
+		fmt.Printf("正在安装证书...\n")
+		if err := certificate.InstallCertificate(c.Cert.Cert); err != nil {
+			return fmt.Errorf("安装证书失败: %v", err)
 		}
 	}
 	if !buildtags.UsingSunnyNet && c.Settings.ProxySetSystem {

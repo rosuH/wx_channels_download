@@ -88,26 +88,25 @@ func installCertificate(cert_data []byte) error {
 
 func uninstallCertificate(name string) error {
 	fmt.Println(name)
-	// Remove-Item "Cert:\LocalMachine\Root\D70CD039051F77C30673B8209FC15EFA650ED52C"
 	certificates, err := fetchCertificates()
 	if err != nil {
 		return err
 	}
-	var matched *Certificate
+	var matched []string
 	for _, cert := range certificates {
 		if cert.Subject.CN == name {
-			matched = &cert
-			break
+			matched = append(matched, cert.Thumbprint)
 		}
 	}
-	if matched == nil {
+	if len(matched) == 0 {
 		return errors.New("没有找到要删除的证书")
 	}
-	cmd := fmt.Sprintf("Get-ChildItem Cert:\\LocalMachine\\Root\\%v | Remove-Item", matched.Thumbprint)
-	ps := exec.Command("powershell.exe", "-NoProfile", "-Command", cmd)
-	output, err2 := ps.CombinedOutput()
-	if err2 != nil {
-		return fmt.Errorf("删除证书时发生错误，%v\n", string(output))
+	for _, thumbprint := range matched {
+		cmd := fmt.Sprintf("Get-ChildItem Cert:\\LocalMachine\\Root\\%v | Remove-Item", thumbprint)
+		ps := exec.Command("powershell.exe", "-NoProfile", "-Command", cmd)
+		if output, err := ps.CombinedOutput(); err != nil {
+			fmt.Printf("删除证书 %s 时发生错误: %v\n", thumbprint, string(output))
+		}
 	}
 	return nil
 }
