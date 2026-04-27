@@ -27,6 +27,7 @@ builds:
     ldflags:
       - -s -w
       - -X main.Mode=release
+      - -X main.AppVer={{.Version}}
     ignore:
       - goos: darwin
         goarch: "386"
@@ -46,9 +47,7 @@ builds:
     ldflags:
       - -s -w
       - -X main.Mode=release
-    hooks:
-      post:
-        - rcodesign sign --p12-file {{ .Env.MAC_CERT_P12_FILE }} --p12-password {{ .Env.MAC_CERT_PASSWORD }} --code-signature-flags runtime "{{ .Path }}"
+      - -X main.AppVer={{.Version}}
 
   - id: windows_plain
     env:
@@ -61,7 +60,9 @@ builds:
     main: .
     binary: wx_video_download
     ldflags:
+      - -s -w
       - -X main.Mode=release
+      - -X main.AppVer={{.Version}}
 
   # TODO: Temporarily disabled SunnyNet build
   # - id: windows_sunnynet

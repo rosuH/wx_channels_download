@@ -17,7 +17,7 @@ type CertFileAndKeyFile struct {
 }
 
 var DefaultCertFiles = &CertFileAndKeyFile{
-	Name:       "SunnyNet",
+	Name:       "WxChannelsProxyCA",
 	Cert:       cert_file,
 	PrivateKey: private_key_file,
 }

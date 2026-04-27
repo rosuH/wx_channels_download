@@ -44,6 +44,11 @@ mp:
   refreshSkipMinutes: 20
   maxWebsocketClients: 5
 
+cert:
+  file: ""      # 自定义证书绝对路径
+  key: ""       # 自定义私钥绝对路径
+  name: "WxChannelsProxyCA"  # 自定义证书名称
+
 cloudflare:
   accountId: ""
   apiToken: ""

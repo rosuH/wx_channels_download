@@ -48,7 +48,7 @@ type GitHubRelease struct {
 func do_update() {
 	spinner, _ := pterm.DefaultSpinner.Start("正在检查更新...")
 
-	releases, err := fetch_releases("ltaoo/wx_channels_download")
+	releases, err := fetch_releases("rosuH/wx_channels_download")
 	if err != nil {
 		spinner.Fail(fmt.Sprintf("检查更新失败: %v", err))
 		return
